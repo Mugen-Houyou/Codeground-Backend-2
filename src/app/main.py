@@ -43,7 +43,9 @@ app.add_middleware(
 
 app.include_router(router=auth_router, prefix=settings.API_V1_STR)
 app.include_router(router=webrtc_router, prefix=settings.API_V1_STR)
-app.include_router(router=match_router, prefix=settings.API_V1_STR)
+# WebSocket endpoints for matchmaking should be accessible without the
+# standard API prefix so clients can connect to "/ws/match/{user_id}".
+app.include_router(router=match_router)
 app.include_router(router=user_router, prefix=settings.API_V1_STR)
 app.include_router(router=game_router, prefix=settings.API_V1_STR)
 app.include_router(router=ranking_router, prefix=settings.API_V1_STR)
