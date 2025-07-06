@@ -12,6 +12,7 @@ from src.app.domain.match import router as match_router
 from src.app.domain.user import router as user_router
 from src.app.domain.game import router as game_router
 from src.app.domain.analysis import router as analysis_router
+from src.app.domain.report import router as report_router
 from src.app.config.config import settings
 from src.app.domain.match.service.match_service import match_service
 from src.app.domain.ranking.router.ranking_controller import router as ranking_router
@@ -64,6 +65,8 @@ app.include_router(router=user_router, prefix=settings.API_V1_STR)
 app.include_router(router=game_router, prefix=settings.API_V1_STR)
 app.include_router(router=ranking_router, prefix=settings.API_V1_STR)
 app.include_router(router=analysis_router, prefix=settings.API_V1_STR)
+app.include_router(router=report_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/")
 async def health_check():

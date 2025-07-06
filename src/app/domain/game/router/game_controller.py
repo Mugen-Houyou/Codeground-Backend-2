@@ -1,5 +1,5 @@
 from fastapi import Depends, WebSocket, WebSocketDisconnect, APIRouter, Query
-from src.app.utils.game_session import game_rooms, game_user_map, ready_status
+from src.app.utils.game_session import game_rooms, game_user_map, ready_status, disconnected_users
 import json
 from src.app.domain.game.service.game_result_service import update_user_log, update_match, search_result, get_mmr_earned
 from typing import Annotated
@@ -22,6 +22,19 @@ async def game_websocket(db: DB, websocket: WebSocket, game_id: int, user_id: in
         return
 
     await websocket.accept()
+    # 재연결 감지 및 알림
+    if disconnected_users.get(game_id) == user_id:
+        disconnected_users.pop(game_id, None)
+        await broadcast_to_room(
+            game_id,
+            {
+                "type": "opponent_rejoined",
+                "user_id": user_id,
+                "game_id": game_id,
+                "message": "상대방이 다시 연결되었습니다.",
+            },
+            exclude=websocket
+        )
     game_rooms[game_id].append(websocket)
     ready_status[game_id][user_id] = False
 
@@ -40,21 +53,25 @@ async def game_websocket(db: DB, websocket: WebSocket, game_id: int, user_id: in
         if user_id in ready_status.get(game_id, {}):
             ready_status[game_id].pop(user_id, None)
 
-            # Notify remaining players that this user disconnected
+        # 상태 기록
+        disconnected_users[game_id] = user_id
+
         if game_rooms.get(game_id):
             await broadcast_to_room(
                 game_id,
                 {
-                    "type": "opponent_disconnected",
+                    "type": "opponent_left",
                     "user_id": user_id,
+                    "game_id": game_id,
+                    "message": "상대방이 연결을 종료했습니다. 계속 문제를 푸시겠습니까?",
                 },
             )
 
+        # 마지막 유저까지 나갔으면 방 정리
         if not game_rooms[game_id]:
             game_rooms.pop(game_id, None)
-
-            # game_user_map.pop(game_id, None)
             ready_status.pop(game_id, None)
+            disconnected_users.pop(game_id, None)
 
 
 async def handle_game_message(db, websocket: WebSocket, game_id: int, user_id: int, message: str):
@@ -79,11 +96,36 @@ async def handle_game_message(db, websocket: WebSocket, game_id: int, user_id: i
             if all(ready_status[game_id].values()):
                 await broadcast_to_room(game_id, {"type": "all_ready"})
 
-        elif message_type == "submit":
-            # 채점 요청은 백엔드 채점 큐로 전달 (여기서는 예시용 로깅만)
-            # 실제로는 RabbitMQ, Redis 등 MQ에 넣어야 함
-            print(f"채점 요청: 사용자 {user_id}, 코드: {data.get('code')}")
-            await websocket.send_json({"type": "submission_received"})
+        elif message_type == "system_warning":
+            await broadcast_to_room(game_id, {
+                "type": "system_warning",
+                "event": data.get("event"),
+                "count": data.get("count"),
+                "message": data.get("message"),
+                "user_id": user_id,  # 누가 보낸 건지 구분용
+            })
+
+        elif message_type == "screen_share_stopped":
+            print("screen_share_stopped")
+            # 상대방에게 화면 공유 중단 알림 전송
+            await broadcast_to_room(
+                game_id,
+                {
+                    "type": "screen_share_stopped",
+                    "user_id": user_id,
+                    "message": "화면 공유가 중지되었습니다.",
+                },
+            )
+
+        elif message_type == "screen_share_started":
+            await broadcast_to_room(
+                game_id,
+                {
+                    "type": "screen_share_started",
+                    "user_id": user_id,
+                    "message": "상대방이 화면 공유를 시작했습니다.",
+                },
+            )
 
         # 제출 / 시간초과 / 항복 시 여기로
         # 각 reason 은 "finish" / "timeout" / "surrender"
@@ -92,11 +134,15 @@ async def handle_game_message(db, websocket: WebSocket, game_id: int, user_id: i
             print("시작")
             winner_id, reason = await process_match_result(db, game_id, user_id, opponent_id, reason)
             mmr_earned = await get_mmr_earned(db, game_id, user_id)
-            print(winner_id, reason)
-            await websocket.send_json({
-                "type": "match_result", "winner": winner_id, "earned": mmr_earned, "reason": reason
-            })
             print(winner_id, reason, mmr_earned)
+
+            await broadcast_to_room(game_id, {
+                "type": "match_result",
+                "winner": winner_id,
+                "earned": mmr_earned,
+                "reason": reason
+            })
+
         else:
             print("에러 1")
             await websocket.send_json({"type": "error", "message": "Unknown message type"})
@@ -127,7 +173,7 @@ async def broadcast_to_room(game_id: int, message: dict, exclude: WebSocket = No
 
 
 async def process_match_result(
-    db: Session, game_id: int, user_id: int, opponent_id: int, reason: str
+        db: Session, game_id: int, user_id: int, opponent_id: int, reason: str
 ) -> (int | None, str):
     opponent_result = await search_result(db, game_id, opponent_id)
     # 기권 시
