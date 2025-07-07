@@ -72,3 +72,4 @@ prof/*
 /.env
 /.venv
 /migration/versions/
+/src/resource/static/reports/

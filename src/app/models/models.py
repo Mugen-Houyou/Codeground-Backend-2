@@ -157,3 +157,14 @@ class RankChangeLog(Base):
 
     # 관계 설정
     user = relationship("User", back_populates="rank_change_logs")
+
+
+class CheatReport(Base):
+    __tablename__ = "cheat_report"
+
+    report_id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(Integer, nullable=True)
+    reason = Column(String(50), nullable=False)
+    description = Column(Text, nullable=True)
+    video_path = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

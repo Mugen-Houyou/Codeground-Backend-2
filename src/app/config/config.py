@@ -7,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 ENV_PATH = os.path.join(os.path.dirname(BASE_DIR), ".env")
 load_dotenv(ENV_PATH)
 
+
 class Settings(BaseSettings):
     ENV: str = "local"
     API_V1_STR: str = "/api/v1"
