@@ -95,16 +95,22 @@ async def handle_accept(match_id: int, user_id: int, db: Session):
 
         presigned = await issue_problem_urls(problem)
 
+        problem_payload = {
+            "problem_id": problem.problem_id,
+            "image_urls": presigned["image_urls"],
+            "difficulty": problem.difficulty,
+        }
+
+        if "problem_data" in presigned:
+            problem_payload["problem_data"] = presigned["problem_data"]
+        else:
+            problem_payload["problem_url"] = presigned["problem_url"]
+
         msg = {
             "type": "match_accepted",
             "game_id": match.match_id,
             "join_url": f"/game/{match.match_id}",
-            "problem": {
-                "problem_id": problem.problem_id,
-                "problem_url": presigned["problem_url"],
-                "image_urls" : presigned["image_urls"],
-                "difficulty": problem.difficulty,
-            },
+            "problem": problem_payload,
         }
         print("[DEBUG] ws_manager.broadcast(match_accepted):", msg)
         await ws_manager.broadcast(users, msg)
