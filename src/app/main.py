@@ -2,6 +2,7 @@ import uvicorn
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,6 +34,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"🚨 Validation error on {request.url}: {exc.errors()}")
+    print(f"🚨 Body: {await request.body()}")
+    return JSONResponse(
+        status_code=400,
+        content={"detail": exc.errors()},
+    )
 
 # 미들웨어 등록
 app.add_middleware(DomainLimiterMiddleware)

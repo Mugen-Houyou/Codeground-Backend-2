@@ -38,10 +38,7 @@ class Settings(BaseSettings):
         env = (getattr(self, "ENV", None) or getattr(self, "ENVIRONMENT", None) or "local").lower()
         if env in ["local"]:
             # 개발환경: 환경변수에서 값을 받아오되 없으면 "*"로 모두 허용
-            raw = os.environ.get("CORS_ALLOWED_ORIGINS", "*")
-            if raw == "*":
-                return ["*"]
-            return [o.strip() for o in raw.split(",") if o.strip()]
+            return ["http://localhost:8080"]
         elif env in ["dev", "DEV"]:
             # 운영/배포환경: 환경변수에서 반드시 허용할 도메인만 리스트로 반환
             raw = os.environ.get("CORS_ALLOWED_ORIGINS", "https://code-ground.com")
