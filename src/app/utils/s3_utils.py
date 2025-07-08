@@ -16,7 +16,7 @@ class ProblemURLBundle(TypedDict):
 if not BUCKET or not REGION:
     raise RuntimeError("환경변수 PROBLEM_BUCKET / AWS_REGION 설정이 필요합니다")
 
-ENDTIMER = 300  # presigned URL TTL (초)
+ENDTIMER = 3600  # presigned URL TTL (초)
 
 # IAM Task Role을 사용하는 ECS 환경에선 Access Key 불필요
 s3 = boto3.client("s3", region_name=REGION)
