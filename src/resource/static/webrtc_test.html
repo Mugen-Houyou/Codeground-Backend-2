@@ -27,6 +27,19 @@
       let localStream;
       let name;
       const peerConnections = {};
+      const pendingCandidates = {};
+
+      function leaveRoom() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "leave", from: name }));
+          ws.close();
+        }
+        Object.values(peerConnections).forEach((pc) => pc.close());
+        for (const key in peerConnections) {
+          delete peerConnections[key];
+        }
+        document.getElementById("remoteVideos").innerHTML = "";
+      }
 
       function createPeerConnection(peer) {
         const pc = new RTCPeerConnection({
@@ -59,6 +72,16 @@
           }
           video.srcObject = stream;
         };
+        pc.oniceconnectionstatechange = () => {
+          if (pc.iceConnectionState === "disconnected") {
+            pc.close();
+            delete peerConnections[peer];
+            const video = document.getElementById(`remote-${peer}`);
+            if (video) {
+              video.remove();
+            }
+          }
+        };
         return pc;
       }
 
@@ -79,6 +102,7 @@
         ws = new WebSocket(
           `${protocol}://${location.host}/api/v1/ws/webrtc/${room}?username=${encodeURIComponent(name)}`,
         );
+        ws.addEventListener("close", leaveRoom);
 
         ws.onmessage = async ({ data }) => {
           const msg = JSON.parse(data);
@@ -102,6 +126,12 @@
             const pc =
               peerConnections[msg.from] || createPeerConnection(msg.from);
             await pc.setRemoteDescription(new RTCSessionDescription(msg));
+            if (pendingCandidates[msg.from]) {
+              for (const c of pendingCandidates[msg.from]) {
+                await pc.addIceCandidate(c);
+              }
+              delete pendingCandidates[msg.from];
+            }
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             ws.send(
@@ -116,11 +146,22 @@
             const pc = peerConnections[msg.from];
             if (pc) {
               await pc.setRemoteDescription(new RTCSessionDescription(msg));
+              if (pendingCandidates[msg.from]) {
+                for (const c of pendingCandidates[msg.from]) {
+                  await pc.addIceCandidate(c);
+                }
+                delete pendingCandidates[msg.from];
+              }
             }
           } else if (msg.type === "candidate") {
             const pc = peerConnections[msg.from];
             if (pc && msg.candidate) {
-              await pc.addIceCandidate(msg.candidate);
+              if (pc.remoteDescription && pc.remoteDescription.type) {
+                await pc.addIceCandidate(msg.candidate);
+              } else {
+                pendingCandidates[msg.from] = pendingCandidates[msg.from] || [];
+                pendingCandidates[msg.from].push(msg.candidate);
+              }
             }
           } else if (msg.type === "leave") {
             const pc = peerConnections[msg.from];
@@ -138,6 +179,7 @@
         ws.onopen = () => {
           ws.send(JSON.stringify({ type: "join", from: name }));
         };
+        window.addEventListener("beforeunload", leaveRoom);
       };
     </script>
   </body>
