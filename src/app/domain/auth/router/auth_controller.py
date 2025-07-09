@@ -83,7 +83,7 @@ async def complete_password_reset(email: str, code: str, new_password: str, db: 
 
 @router.get("/find-id")
 async def find_id(email: str, db: DB):
-    user = crud.get_user_by_email(db, email)
+    user = await crud.get_user_by_email(db, email)
     if not user:
         raise HTTPException(status_code=404, detail="등록되지 않은 이메일입니다.")
     return {"username": user.username, "nickname": user.nickname}

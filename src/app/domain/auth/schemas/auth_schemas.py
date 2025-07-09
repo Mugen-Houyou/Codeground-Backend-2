@@ -8,7 +8,10 @@ class SignupRequest(BaseModel):
     username: str
     password: constr(min_length=8, max_length=20)
     nickname: str
-    use_lang: str
+    use_lang: str | None = None
+
+# Backwards compatibility for tests
+UserSignupRequest = SignupRequest
 
 
 class SignupResponse(BaseModel):
