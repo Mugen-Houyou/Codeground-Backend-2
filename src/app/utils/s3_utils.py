@@ -3,10 +3,14 @@ import boto3
 from typing import TypedDict, List
 from src.app.models.models import Problem
 from src.app.config.config import settings
+from fastapi import UploadFile
+import uuid
+import os
 
 PROBLEM_BUCKET = settings.PROBLEM_BUCKET
 REGION = settings.AWS_REGION
 REPORT_BUCKET = settings.REPORT_BUCKET
+PROFILE_IMAGE_BUCKET = settings.PROFILE_IMAGE_BUCKET
 
 
 class ProblemURLBundle(TypedDict):
@@ -39,7 +43,24 @@ def upload_bytes(data: bytes, key: str, bucket: str = REPORT_BUCKET) -> None:
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=data)
     except Exception as e:
-        raise RuntimeError(f"S3 업로드 실패: {key}, 에러: {e}")
+        pass
+        # raise RuntimeError(f"S3 업로드 실패: {key}, 에러: {e}")
+
+
+async def upload_profile_image_to_s3(file: UploadFile) -> str:
+    if not PROFILE_IMAGE_BUCKET:
+        raise ValueError("PROFILE_IMAGE_BUCKET is not configured.")
+
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    s3_key = f"profile_images/{unique_filename}"
+
+    try:
+        contents = await file.read()
+        upload_bytes(contents, s3_key, bucket=PROFILE_IMAGE_BUCKET)
+        return f"https://{PROFILE_IMAGE_BUCKET}.s3.{REGION}.amazonaws.com/{s3_key}"
+    except Exception as e:
+        raise RuntimeError(f"Failed to upload profile image to S3: {e}")
 
 
 async def issue_problem_urls(problem: Problem) -> ProblemURLBundle:

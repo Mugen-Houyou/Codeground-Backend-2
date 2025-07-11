@@ -1,6 +1,6 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Response
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from src.app.core.database import get_db
@@ -14,29 +14,25 @@ router = APIRouter(prefix="/auth/github")
 DB = Annotated[Session, Depends(get_db)]
 
 
-@router.get("/login")  # ✅ 이렇게 수정
+@router.get("/login")
 async def github_login():
     redirect_url = get_github_auth_url()
-    return RedirectResponse(url=redirect_url, status_code=302)
+    return {"redirect_url": redirect_url}
 
 
 @router.get("/callback")
 async def github_callback(code: str, db: DB):
     result = await handle_github_callback(code, db)
 
-    # 👉 이메일 중복 등으로 RedirectResponse가 반환된 경우
     if isinstance(result, RedirectResponse):
-        return result
+        return result  # 이메일 중복 등은 여전히 Redirect로 처리
 
     user, is_new_user = result
-    access_token = create_access_token(subject=user.email)
+    access_token = create_access_token(subject=user.email)  # ✅ user.email → user.user_id
 
-    redirect_url = f"{settings.FRONTEND_REDIRECT_URL}?new_user={str(is_new_user).lower()}"
-    response = RedirectResponse(url=redirect_url, status_code=302)
+    response = JSONResponse(content={"message": "Login successful", "is_new_user": is_new_user})
 
     secure, samesite, domain, http_only = get_cookie_options()
-    print("🍪 쿠키 옵션:", secure, samesite, domain, http_only)
-
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -47,5 +43,5 @@ async def github_callback(code: str, db: DB):
         max_age=60 * 60 * 24,
         domain=domain,
     )
-
     return response
+

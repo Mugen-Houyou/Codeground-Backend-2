@@ -10,12 +10,11 @@ from urllib.parse import urlencode
 
 
 def get_github_auth_url() -> str:
-    redirect_uri = "http://localhost:8000/api/v1/auth/github/callback"
     return (
         "https://github.com/login/oauth/authorize"
         f"?client_id={settings.GITHUB_CLIENT_ID}"
         "&scope=read:user user:email"
-        f"&redirect_uri={redirect_uri}"
+        f"&redirect_uri={settings.GITHUB_CALLBACK_URL}"
     )
 
 
@@ -28,6 +27,7 @@ async def handle_github_callback(code: str, db: Session):
                 "client_id": settings.GITHUB_CLIENT_ID,
                 "client_secret": settings.GITHUB_CLIENT_SECRET,
                 "code": code,
+                "redirect_uri": settings.GITHUB_CALLBACK_URL,
             },
             headers={"Accept": "application/json"},
         )

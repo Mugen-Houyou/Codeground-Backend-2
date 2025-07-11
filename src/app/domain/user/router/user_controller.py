@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from src.app.core.database import get_db
 from src.app.core.security import get_current_user
@@ -38,26 +38,50 @@ async def get_user_me(
 
 @router.put("/me", response_model=schemas.UserUpdateResponse)
 async def update_my_profile_handler(
-    update_data: schemas.UserUpdateRequest,
+    nickname: str = Form(None),
+    current_password: str = Form(None),
+    new_password: str = Form(None),
+    profile_image: UploadFile = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     logger.info(f"Updating user profile for user ID: {current_user.user_id}")
-    profile_img_url_str = str(update_data.profile_img_url) if update_data.profile_img_url else None
+    profile_img_url_str = None
+    if profile_image:
+        from src.app.utils.image_utils import upload_profile_image
+        profile_img_url_str = await upload_profile_image(profile_image)
 
     updated_user = await service.update_my_profile(
-        db,
-        current_user.user_id,
-        update_data.nickname,
-        getattr(update_data, "current_password", None),
-        update_data.new_password,
-        profile_img_url_str,
+        db=db,
+        user_id=current_user.user_id,
+        nickname=nickname,
+        current_password=current_password,
+        new_password=new_password,
+        profile_img_url=profile_img_url_str,
     )
     if not updated_user:
         logger.warning(f"Failed to update user profile for user ID: {current_user.user_id}")
         raise HTTPException(status_code=400, detail="Failed to update user info")
     logger.info(f"Successfully updated profile for user ID: {current_user.user_id}")
+
+    user_mmr = await get_mmr_by_id(db, updated_user.user_id)
+    mmr = user_mmr.rating if user_mmr and user_mmr.rating else 1000
+    user_rank_info = await get_rank_by_id(db, updated_user.user_id)
+    rank = user_rank_info.rank if user_rank_info else 0
+
+    user_dict = {
+        "user_id": updated_user.user_id,
+        "email": updated_user.email,
+        "nickname": updated_user.nickname,
+        "username": updated_user.username,
+        "use_lang": updated_user.use_lang,
+        "profile_img_url": updated_user.profile_img_url,
+        "user_mmr": int(mmr),
+        "user_rank": int(rank),
+    }
+
+
     return schemas.UserUpdateResponse(
         message="회원 정보가 성공적으로 수정되었습니다.",
-        user=schemas.UserResponseDto.model_validate(updated_user),
+        user=schemas.UserResponseDto(**user_dict),
     )

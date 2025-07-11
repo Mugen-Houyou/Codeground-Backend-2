@@ -34,7 +34,7 @@ class UserResponseDto(BaseModel):
     user_mmr: int
     user_rank : int
     model_config = {"from_attributes": True}
-
+    profile_img_url: Optional[str] = None
 
 # ✅ 사용자 요청 DTO
 class UserRequestDto(BaseModel):
@@ -102,7 +102,7 @@ class UserDto(BaseModel):
     username: str
     nickname: str
     use_lang: str
-    profile_img_url: Optional[HttpUrl] = None
+    profile_img_url: Optional[str] = None
     my_mmr: Optional[MyMmr] = None  # 변환된 형태로 제공
 
     model_config = ConfigDict(from_attributes=True)
