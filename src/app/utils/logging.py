@@ -54,7 +54,7 @@ def configure_logging():
         # 핸들러 포맷 설정
         formatter = JsonFormatter()
 
-        # 스트림 핸들러 (콘솔 출력)
+        # 스트림 핸들러 (콘솔 출력)는 항상 추가
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)
         if settings.ENVIRONMENT == "PROD":
@@ -63,21 +63,16 @@ def configure_logging():
             stream_handler.setLevel(logging.DEBUG)
         loggers.addHandler(stream_handler)
 
-        # 파일 핸들러 설정
+        # 로컬 환경에서만 파일 핸들러 추가
         if settings.ENVIRONMENT == "local":
             log_dir = ROOT_DIR / "logs"
             os.makedirs(log_dir, exist_ok=True)
             log_file_name = datetime.now().strftime("%Y-%m-%d") + ".log"
             log_file_path = log_dir / log_file_name
-            file_handler_level = logging.DEBUG
-        else:  # PROD 또는 기타 환경
-            log_file_path = ROOT_DIR / "app.log"
-            file_handler_level = logging.INFO
-
-        file_handler = RotatingFileHandler(log_file_path, maxBytes=1024 * 1024 * 5, backupCount=5)  # 5MB 파일 5개
-        file_handler.setFormatter(formatter)
-        file_handler.setLevel(file_handler_level)
-        loggers.addHandler(file_handler)
+            file_handler = RotatingFileHandler(log_file_path, maxBytes=1024 * 1024 * 5, backupCount=5)  # 5MB 파일 5개
+            file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.DEBUG) # Local environment should log all debug messages to file
+            loggers.addHandler(file_handler)
 
         return loggers
     except Exception as e:
