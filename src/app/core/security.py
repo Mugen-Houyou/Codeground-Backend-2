@@ -10,7 +10,6 @@ def get_current_user(
     access_token: str = Cookie(None),
     db: Session = Depends(get_db)
 ):
-    # (추가: 토큰이 아예 없는 경우)
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -19,7 +18,7 @@ def get_current_user(
         if user is None:
             raise HTTPException(status_code=401, detail="User is None")
         return user
-    except JWTError as e:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {e}")

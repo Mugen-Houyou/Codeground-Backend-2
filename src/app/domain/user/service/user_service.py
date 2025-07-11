@@ -47,9 +47,12 @@ async def update_my_profile(
         user.password = get_password_hash(new_password)
         logger.info(f"Password updated for user ID: {user_id}")
 
-    if nickname:
-        user.nickname = nickname
-        logger.info(f"Nickname updated for user ID: {user_id}")
+    if nickname is not None:
+        if user.nickname != nickname:
+            user.nickname = nickname
+            logger.info(f"Nickname updated for user ID: {user_id}")
+        else:
+            logger.info(f"Nickname updated for user ID: {user_id}")
 
     if profile_img_url:
         user.profile_img_url = profile_img_url

@@ -28,12 +28,30 @@ class Settings(BaseSettings):
     AWS_REGION: str = os.environ.get("AWS_REGION", "")
     GITHUB_CLIENT_ID: str = os.environ.get("GITHUB_CLIENT_ID", "")
     GITHUB_CLIENT_SECRET: str = os.environ.get("GITHUB_CLIENT_SECRET", "")
-    FRONTEND_REDIRECT_URL: str = os.environ.get("FRONTEND_REDIRECT_URL", "http://localhost:8080/oauth/callback")
     REPORT_BUCKET: str = os.environ.get("REPORT_BUCKET", "")
+    PROFILE_IMAGE_BUCKET: str = os.environ.get("PROFILE_IMAGE_BUCKET", "")
+    github_redirect_uri: str
 
     class Config:
         env_file = ENV_PATH
         env_file_encoding = "utf-8"
+        extra = "forbid"
+
+    @property
+    def GITHUB_CALLBACK_URL(self) -> str:
+        env = (getattr(self, "ENV", None) or getattr(self, "ENVIRONMENT", None) or "local").lower()
+        if env in ["local"]:
+            return "http://localhost:8000/api/v1/auth/github/callback"
+        else:
+            return "https://code-ground.com/api/v1/auth/github/callback"
+
+    @property
+    def FRONTEND_REDIRECT_URL(self) -> str:
+        env = (getattr(self, "ENV", None) or getattr(self, "ENVIRONMENT", None) or "local").lower()
+        if env in ["local"]:
+            return "http://localhost:8080/oauth/callback"
+        else:
+            return "https://code-ground.com/oauth/callback"
 
     @property
     def DB_URL(self) -> str:
