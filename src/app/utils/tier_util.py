@@ -1,13 +1,13 @@
 def mmr_to_tier(mmr: int) -> str:
-    if mmr < 1500:
+    if mmr < 500:
         return "bronze"
-    elif mmr < 2000:
+    elif 500 <= mmr < 1000:
         return "silver"
-    elif mmr < 2500:
+    elif 1000 <= mmr < 1500:
         return "gold"
-    elif mmr < 3000:
+    elif 1500 <= mmr < 2000:
         return "platinum"
-    elif mmr < 3500:
+    elif 2000 <= mmr < 2500:
         return "diamond"
     else:
         return "challenger"

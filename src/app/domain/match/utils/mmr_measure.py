@@ -5,10 +5,10 @@ from typing import List, Tuple
 
 # Glicko2 기반 상수/파라미터
 SCALE = 173.7178
-SIGMA_DEF = 0.06
+SIGMA_DEF = 0.1
 TAU = 0.5
 T_REF_H = 24
-RD_MAX = 350
+RD_MAX = 400
 N_TRIGGER = 12
 DEFAULT_RATING = 1500
 

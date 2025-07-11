@@ -43,7 +43,7 @@ class Settings(BaseSettings):
         if env in ["local"]:
             return "http://localhost:8000/api/v1/auth/github/callback"
         else:
-            return "https://code-ground.com/api/v1/auth/github/callback"
+            return "https://api.code-ground.com/api/v1/auth/github/callback"
 
     @property
     def FRONTEND_REDIRECT_URL(self) -> str:
