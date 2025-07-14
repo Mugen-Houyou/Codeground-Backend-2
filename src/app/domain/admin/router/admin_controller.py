@@ -8,6 +8,7 @@ from src.app.domain.admin.schemas.admin_schemas import (
     AdminReportOut, AdminReportConfirmResult,
     AdminProblemOut, AdminProblemApproveResult,
     TierDistributionItem,
+    AchievementCreate, AchievementUpdate, AchievementResponse
 )
 from src.app.domain.admin.service import admin_service
 from src.app.utils.tier_util import mmr_to_tier
@@ -91,3 +92,30 @@ def get_mmr_tier_list(db: Session = Depends(get_db)):
 def get_tier_distribution(db: Session = Depends(get_db)):
     tier_data = admin_crud.get_tier_distribution(db)
     return [TierDistributionItem(rating=r, user_count=c) for r, c in tier_data]
+
+# (10) 업적 관리 API
+@router.post("/achievements", response_model=AchievementResponse)
+def create_achievement(achievement: AchievementCreate, db: Session = Depends(get_db)):
+    return admin_service.create_achievement(db=db, achievement=achievement)
+
+@router.get("/achievements", response_model=List[AchievementResponse])
+def get_achievements(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return admin_service.get_achievements(db=db, skip=skip, limit=limit)
+
+@router.get("/achievements/{achievement_id}", response_model=AchievementResponse)
+def get_achievement(achievement_id: int, db: Session = Depends(get_db)):
+    db_achievement = admin_service.get_achievement(db, achievement_id=achievement_id)
+    if db_achievement is None:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+    return db_achievement
+
+@router.put("/achievements/{achievement_id}", response_model=AchievementResponse)
+def update_achievement(achievement_id: int, achievement: AchievementUpdate, db: Session = Depends(get_db)):
+    return admin_service.update_achievement(db=db, achievement_id=achievement_id, achievement=achievement)
+
+@router.delete("/achievements/{achievement_id}", response_model=AchievementResponse)
+def delete_achievement(achievement_id: int, db: Session = Depends(get_db)):
+    db_achievement = admin_service.delete_achievement(db, achievement_id=achievement_id)
+    if db_achievement is None:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+    return db_achievement

@@ -217,8 +217,14 @@ class AchievementTriggerType(str, PyEnum):
     FIRST_WIN = "first_win"
     TOTAL_WIN = "total_win"
     CONSECUTIVE_WIN = "consecutive_win"
+    TOTAL_LOSS = "total_loss"
+    CONSECUTIVE_LOSS = "consecutive_loss"
+    TOTAL_DRAW = "total_draw"
+    PROBLEM_SOLVED = "problem_solved"
     WIN_WITHOUT_MISS = "win_without_miss"
+    WIN_WITHIN_N_SUBMISSIONS = "win_within_n_submissions"
     FAST_WIN = "fast_win"
+    APPROVED_PROBLEM_COUNT = "approved_problem_count"
 
 
 # ———————————————— 업적 카테고리 ————————————————

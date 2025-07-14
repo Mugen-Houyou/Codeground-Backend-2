@@ -1,6 +1,9 @@
 """Achievement domain setup."""
 
 from fastapi import APIRouter
+from .router import achievement_controller
 
 router = APIRouter()
-# Router for achievement APIs can be included here in the future
+router.include_router(
+    achievement_controller.router, prefix="/achievement", tags=["achievement"]
+)

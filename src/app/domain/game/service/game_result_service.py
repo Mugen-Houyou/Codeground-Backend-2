@@ -1,13 +1,19 @@
 from src.app.domain.match.utils.mmr_measure import full_update, MatchScore
 from src.app.models.models import MatchResult, MatchFinishStatus, MatchStatus
-from src.app.domain.match.crud.match_crud import get_mmr_by_id, get_log_by_game_id
-from src.app.domain.ranking.crud.ranking_crud import get_rank_by_id, get_users_in_mmr_range
+from src.app.domain.match.crud.match_crud import (
+    get_mmr_by_id,
+    get_log_by_game_id,
+)
+from src.app.domain.ranking.crud.ranking_crud import (
+    get_rank_by_id,
+    get_users_in_mmr_range,
+)
 from src.app.domain.ranking.service.ranking_service import create_rank
 from src.app.utils.tier_util import mmr_to_tier, tiers_cnt, tiers
+from src.app.domain.achievement.service import achievement_service
 from sqlalchemy.orm import Session
 from src.app.models.models import Match
 from datetime import datetime, timezone
-
 
 RESULT_TO_SCORE = {
     MatchResult.WIN: MatchScore.WIN,
@@ -41,7 +47,10 @@ async def update_user_mmr(db: Session, game_id: int, user_id: int) -> None:
     game = [(enemy_mmr, enemy_rd, score_enum)]
 
     new_rate, new_rd, new_sigma = full_update(
-        user_mmr_info.rating, user_mmr_info.rating_devi, user_mmr_info.volatility, game
+        user_mmr_info.rating,
+        user_mmr_info.rating_devi,
+        user_mmr_info.volatility,
+        game,
     )
 
     user_mmr_info.rating = new_rate
@@ -52,7 +61,6 @@ async def update_user_mmr(db: Session, game_id: int, user_id: int) -> None:
     match_log.is_consumed = True
     user_rank.mmr = int(new_rate)
 
-
     user_tier = mmr_to_tier(int(user_mmr_info.rating))
     ori_tier = mmr_to_tier(int(ori_mmr))
 
@@ -61,9 +69,13 @@ async def update_user_mmr(db: Session, game_id: int, user_id: int) -> None:
 
     high_user_cnt = await get_high_tier_users(user_tier)
 
-    #랭크 최신화
-    update_users = await get_users_in_mmr_range(db,min(ori_mmr, new_rate), max(ori_mmr, new_rate))
-    if len(update_users) <= 1 :
+    # 랭크 최신화
+    update_users = await get_users_in_mmr_range(
+        db,
+        min(ori_mmr, new_rate),
+        max(ori_mmr, new_rate),
+    )
+    if len(update_users) <= 1:
         db.commit()
         return
 
@@ -73,7 +85,11 @@ async def update_user_mmr(db: Session, game_id: int, user_id: int) -> None:
         user_rank.rank = update_users[-1].rank
         user_rank.rank_diff = ori_rank - user_rank.rank
 
-        start = ori_rank if user_rank.rank > high_user_cnt else high_user_cnt + 1
+        start = (
+            ori_rank
+            if user_rank.rank > high_user_cnt
+            else high_user_cnt + 1
+        )
         for user in update_users:
             if user == user_rank or user.rank < ori_rank:
                 continue
@@ -81,10 +97,14 @@ async def update_user_mmr(db: Session, game_id: int, user_id: int) -> None:
             user.rank_diff += 1
             start += 1
 
-    #승리 시
+    # 승리 시
     else:
         ori_rank = user_rank.rank
-        user_rank.rank = update_users[0].rank if update_users[0].rank > high_user_cnt else high_user_cnt + 1
+        user_rank.rank = (
+            update_users[0].rank
+            if update_users[0].rank > high_user_cnt
+            else high_user_cnt + 1
+        )
         user_rank.rank_diff = ori_rank - user_rank.rank
 
         start = user_rank.rank + 1
@@ -99,7 +119,16 @@ async def update_user_mmr(db: Session, game_id: int, user_id: int) -> None:
     return
 
 
-async def update_user_log(db: Session, game_id: int, user_id: int, opponent_id : int, winner_id: int | None) -> None:
+from src.app.models.models import AchievementTriggerType
+
+
+async def update_user_log(
+        db: Session,
+        game_id: int,
+        user_id: int,
+        opponent_id: int,
+        winner_id: int | None,
+) -> None:
     # MatchLog 가져오기
     user_log = await get_log_by_game_id(db, game_id, user_id)
     opponent_log = await get_log_by_game_id(db, game_id, opponent_id)
@@ -122,6 +151,16 @@ async def update_user_log(db: Session, game_id: int, user_id: int, opponent_id :
 
     await update_user_mmr(db, game_id, user_id)
     await update_user_mmr(db, game_id, opponent_id)
+
+    # 업적 확인 로직
+    user_ids = [user_id, opponent_id]
+    for u_id in user_ids:
+        await achievement_service.handle_achievement_event(db, u_id, AchievementTriggerType.TOTAL_WIN)
+        await achievement_service.handle_achievement_event(db, u_id, AchievementTriggerType.TOTAL_LOSS)
+        await achievement_service.handle_achievement_event(db, u_id, AchievementTriggerType.TOTAL_DRAW)
+        await achievement_service.handle_achievement_event(db, u_id, AchievementTriggerType.CONSECUTIVE_WIN)
+        await achievement_service.handle_achievement_event(db, u_id, AchievementTriggerType.CONSECUTIVE_LOSS)
+
     return
 
 
@@ -147,7 +186,8 @@ async def get_mmr_earned(db: Session, game_id: int, user_id: int) -> int:
     match_log = await get_log_by_game_id(db, game_id, user_id)
     return int(match_log.mmr_earned)
 
-async def get_high_tier_users(user_tier : str) -> int:
+
+async def get_high_tier_users(user_tier: str) -> int:
     users_cnt = 0
     tiers_length = len(tiers) - 1
     for i in range(tiers_length):

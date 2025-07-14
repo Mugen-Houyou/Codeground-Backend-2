@@ -2,10 +2,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from src.app.models.models import User, CheatReport, Problem, MatchLog, Match, Ranking, UserMmr
 
+from src.app.models.models import Achievement
+from src.app.domain.admin.schemas.admin_schemas import AchievementCreate, AchievementUpdate
+
+
 # 1. 유저 전체 목록 조회 (검색)
 # nice to have -> 필터링 기능
 def get_all_users(db: Session):
     return db.query(User).all()
+
 
 # 2. 특정 유저 제재(영구 정지 처리)
 def ban_user(db: Session, user_id: int):
@@ -94,6 +99,8 @@ def get_user_match_history(db: Session, user_id: int):
 def get_all_match_logs(db: Session):
     return db.query(MatchLog).all()
 
+
+# 11. [중요] 자동 영구 정지: 승인된 신고가 3초과일 때 is_banned 처리
 # 11. 자동 영구 정지: 승인된 신고가 3초과일 때 is_banned 처리
 def auto_ban_user_if_needed(db: Session, user_id: int, threshold: int = 3):
     count = db.query(CheatReport).filter(
@@ -130,3 +137,37 @@ def get_all_users_with_report_count(db: Session):
         .all()
     )
     return result
+
+
+def create_achievement(db: Session, achievement: AchievementCreate) -> Achievement:
+    db_achievement = Achievement(**achievement.dict())
+    db.add(db_achievement)
+    db.commit()
+    db.refresh(db_achievement)
+    return db_achievement
+
+
+def get_achievement(db: Session, achievement_id: int) -> Achievement | None:
+    return db.query(Achievement).filter(Achievement.achievement_id == achievement_id).first()
+
+
+def get_achievements(db: Session, skip: int = 0, limit: int = 100) -> list[Achievement]:
+    return db.query(Achievement).offset(skip).limit(limit).all()
+
+
+def update_achievement(db: Session, achievement_id: int, achievement: AchievementUpdate) -> Achievement | None:
+    db_achievement = get_achievement(db, achievement_id)
+    if db_achievement:
+        for key, value in achievement.dict(exclude_unset=True).items():
+            setattr(db_achievement, key, value)
+        db.commit()
+        db.refresh(db_achievement)
+    return db_achievement
+
+
+def delete_achievement(db: Session, achievement_id: int) -> Achievement | None:
+    db_achievement = get_achievement(db, achievement_id)
+    if db_achievement:
+        db.delete(db_achievement)
+        db.commit()
+    return db_achievement
