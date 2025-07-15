@@ -82,7 +82,7 @@ async def update_my_profile_handler(
 
     return schemas.UserUpdateResponse(
         message="회원 정보가 성공적으로 수정되었습니다.",
-        user=schemas.UserResponseDto(**user_dict),
+        user=schemas.UserResponseDto.model_validate(user_dict),
     )
 
 
