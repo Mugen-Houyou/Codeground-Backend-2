@@ -89,6 +89,12 @@ async def login(
     logger.info(f"Logging in user: {form_data.username}")
     try:
         user = await service.authenticate_user(db, form_data.username, form_data.password)
+
+        # 정지 계정 처리 추가 -> is_banned = True
+        if user.is_banned:
+            logger.warning(f"Banned user attempted login: {user.email}")
+            raise HTTPException(status_code=403, detail="유저는 현재 정지 상태입니다.")
+
         access_token = create_access_token(subject=user.email)
 
         # 환경에 따라 쿠키 옵션 분기 (가독성 및 실수 방지)
