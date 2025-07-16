@@ -23,14 +23,19 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     role = Column(Enum(UserRole), nullable=False, server_default="USER")
-    is_banned = Column(Boolean, nullable=False, server_default=text("FALSE")) # 영구 정지 여부 -> True면 해당 유저는 정지 상태
+    is_banned = Column(
+        Boolean, nullable=False, server_default=text("FALSE")
+    )  # 영구 정지 여부 -> True면 해당 유저는 정지 상태
     profile_img_url = Column(Text, nullable=True)  # 프로필 이미지 주소
+    last_login_at = Column(DateTime(timezone=True), nullable=True)  # 마지막 로그인 시각
+    consecutive_login_days = Column(Integer, nullable=False, server_default="0")  # 연속 로그인 일수
 
     # 관계 설정
     match_logs = relationship("MatchLog", back_populates="user")
     mmr = relationship("UserMmr", uselist=False, back_populates="user")
     rankings = relationship("Ranking", back_populates="user")
     rank_change_logs = relationship("RankChangeLog", back_populates="user")
+    user_achievements = relationship("UserAchievement", back_populates="user")  # 추가된 부분
 
 
 class UserMmr(Base):
@@ -68,6 +73,7 @@ class MatchLog(Base):
     problem = relationship("Problem", back_populates="match_logs")
 
     result = Column(Enum(MatchResult), nullable=True)
+    submission_count = Column(Integer, default=0)  # 제출 횟수
     mmr_earned = Column(Float, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     opponent_id = Column(Integer, nullable=False)
@@ -118,6 +124,7 @@ class ProblemDifficultyByTiers(str, PyEnum):
 class Problem(Base):
     __tablename__ = "problem"
     problem_id = Column(Integer, primary_key=True, autoincrement=True)
+    author_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # 문제 작성자
     title = Column(Text, nullable=False)
     category = Column(ARRAY(String), nullable=False)
     difficulty = Column(Enum(ProblemDifficultyByTiers), nullable=True)
@@ -134,6 +141,7 @@ class Problem(Base):
 
     match = relationship("Match", back_populates="problem", uselist=False)
     match_logs = relationship("MatchLog", back_populates="problem")
+    author = relationship("User")  # User와 관계 설정
 
 
 class Ranking(Base):
@@ -176,3 +184,104 @@ class CheatReport(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reported_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)     # 신고 당한 사람 O, 신고를 한 사람 X
     is_approved = Column(Boolean, nullable=True)    # 관리자가 승인 O -> True, X -> False, 대기중 -> Null
+
+
+# ———————————————— 사용자별 업적 진행 현황 ————————————————
+class UserAchievement(Base):
+    __tablename__ = "user_achievement"
+
+    user_achievement_id = Column(Integer, primary_key=True, autoincrement=True)
+
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    achievement_id = Column(Integer, ForeignKey("achievement.achievement_id"), nullable=False)
+
+    # 누적형 업적의 진행 정도
+    current_value = Column(Integer, nullable=False, server_default="0")
+
+    # 보상 수령 여부
+    is_reward_received = Column(Boolean, nullable=False, server_default=text("FALSE"))
+
+    # 업적 달성 시각
+    obtained_at = Column(DateTime(timezone=True), nullable=True)
+
+    # 생성/수정 타임스탬프
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    modified_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # 관계
+    user = relationship("User", back_populates="user_achievements")
+    achievement = relationship("Achievement", back_populates="user_achievements")
+
+
+class RewardType(str, PyEnum):
+    BADGE = "badge"
+    POINT = "point"
+    GIFT = "gift"
+    # 필요시 더 추가 가능
+
+
+class AchievementTriggerType(str, PyEnum):
+    FIRST_WIN = "first_win"
+    TOTAL_WIN = "total_win"
+    CONSECUTIVE_WIN = "consecutive_win"
+    TOTAL_LOSS = "total_loss"
+    CONSECUTIVE_LOSS = "consecutive_loss"
+    TOTAL_DRAW = "total_draw"
+    PROBLEM_SOLVED = "problem_solved"
+    WIN_WITHOUT_MISS = "win_without_miss"
+    WIN_WITHIN_N_SUBMISSIONS = "win_within_n_submissions"
+    FAST_WIN = "fast_win"
+    APPROVED_PROBLEM_COUNT = "approved_problem_count"
+    CONSECUTIVE_LOGIN = "consecutive_login"
+    LOGIN_ON_DAY_OF_WEEK = "login_on_day_of_week"
+
+
+# ———————————————— 업적 카테고리 ————————————————
+class AchievementCategory(Base):
+    __tablename__ = "achievement_category"
+
+    achievement_category_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    description = Column(String(255), nullable=True)
+    image_url = Column(String(255), nullable=True)
+
+    # 관계: 여러 업적이 하나의 카테고리에 속함
+    achievements = relationship("Achievement", back_populates="category")
+
+
+# ———————————————— 업적 정의 ————————————————
+class Achievement(Base):
+    __tablename__ = "achievement"
+
+    achievement_id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+
+    # — 카테고리 연결 —
+    achievement_category_id = Column(Integer, ForeignKey("achievement_category.achievement_category_id"), nullable=True)
+    category = relationship("AchievementCategory", back_populates="achievements")
+
+    # — 누적형 업적 체인(자기 참조) —
+    next_achievement_id = Column(Integer, ForeignKey("achievement.achievement_id"), nullable=True)
+    next_achievement = relationship("Achievement", remote_side=[achievement_id], backref="previous_achievement")
+
+    # — 보상 정보 —
+    reward_type = Column(Enum(RewardType), nullable=False, server_default=RewardType.BADGE.value)
+    reward_amount = Column(Integer, nullable=False, server_default="1")
+
+    # — 기간 한정 업적 지원 —
+    start_at = Column(DateTime(timezone=True), nullable=True)
+    end_at = Column(DateTime(timezone=True), nullable=True)
+
+    # — 통계용 필드 —
+    unlocked_count = Column(Integer, nullable=False, server_default="0")
+
+    # — 트리거 및 파라미터 —
+    trigger_type = Column(Enum(AchievementTriggerType), nullable=False)
+    parameter = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # 관계: 사용자별 업적
+    user_achievements = relationship("UserAchievement", back_populates="achievement")
