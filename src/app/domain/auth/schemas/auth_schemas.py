@@ -31,6 +31,7 @@ class LoginUserDto(BaseModel):
     email: str
     username: str
     nickname: str
+    is_banned: bool
     last_login_at: Optional[datetime] = None
     consecutive_login_days: int
 
