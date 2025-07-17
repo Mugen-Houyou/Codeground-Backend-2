@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from src.app.models.models import User, CheatReport, Problem, MatchLog, UserMmr
-from src.app.models.models import Achievement, Match # Added Match
+from src.app.models.models import Achievement, Match, AchievementPrerequisite # Added Match, AchievementPrerequisite
 from src.app.domain.admin.schemas.admin_schemas import AchievementCreate, AchievementUpdate, AdminProblemUpdate # Added AdminProblemUpdate
 from src.app.utils.s3_utils import issue_problem_urls, upload_bytes # Added S3 utilities
 from typing import Optional, List, Dict # Added for type hints
@@ -250,7 +250,19 @@ def update_achievement(db: Session, achievement_id: int, achievement: Achievemen
     db_achievement = get_achievement(db, achievement_id)
     if db_achievement:
         for key, value in achievement.dict(exclude_unset=True).items():
-            setattr(db_achievement, key, value)
+            if key == "prerequisite_achievement_ids":
+                # 기존 선행 업적 관계 삭제
+                db.query(AchievementPrerequisite).filter(AchievementPrerequisite.achievement_id == achievement_id).delete()
+                if value:
+                    # 새로운 선행 업적 관계 추가
+                    for prereq_id in value:
+                        db_prereq = AchievementPrerequisite(
+                            achievement_id=achievement_id,
+                            prerequisite_achievement_id=prereq_id,
+                        )
+                        db.add(db_prereq)
+            else:
+                setattr(db_achievement, key, value)
         db.commit()
         db.refresh(db_achievement)
     return db_achievement

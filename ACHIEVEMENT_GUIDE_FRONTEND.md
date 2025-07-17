@@ -24,7 +24,7 @@
 
 ### 3.1. 유저용 API
 
-유저의 업적 정보를 가져오는 API입니다. 게임 종료 후 또는 유저의 업적 페이지에 진입했을 때 호출하여 최신 상태를 반영할 수 있습니다.
+유저의 업적 정보를 가져오는 API입니다. **로그인 관련 업적(연속 로그인, 요일별 로그인)은 `GET /api/v1/users/me` API 호출 시점에 체크됩니다.** 게임 종료 후 또는 유저의 업적 페이지에 진입했을 때 호출하여 최신 상태를 반영할 수 있습니다.
 
 -   **`GET /api/v1/achievements/users/{user_id}`**
     -   **설명**: 특정 유저가 획득한 모든 업적 목록을 조회합니다.
@@ -132,7 +132,7 @@
 관리자 페이지에서 업적을 관리(CRUD)하기 위한 API 엔드포인트입니다.
 
 -   **`POST /api/v1/admin/achievements`**
-    -   **설명**: 새로운 업적을 생성합니다.
+    -   **설명**: 새로운 업적을 생성합니다. **복합 업적을 생성하려면 `prerequisite_achievement_ids` 필드에 선행 업적 ID 목록을 포함합니다.**
     -   **요청 본문 (Request Body):**
         ```json
         {
@@ -141,7 +141,24 @@
           "trigger_type": "TOTAL_WIN",
           "parameter": 10,
           "reward_type": "BADGE",
-          "reward_amount": 1
+          "reward_amount": 1,
+          "prerequisite_achievement_ids": [] // 선택 사항: 이 업적을 달성하기 위한 선행 업적 ID 목록
+        }
+        ```
+    -   **복합 업적 예시 (Request Body):**
+        ```json
+        {
+          "title": "마스터 코더",
+          "description": "브론즈 승리 업적과 실버 문제 해결 업적을 모두 달성",
+          "achievement_category_id": 1,
+          "trigger_type": "TOTAL_WIN",
+          "parameter": 100,
+          "reward_type": "BADGE",
+          "reward_amount": 1,
+          "prerequisite_achievement_ids": [
+            101,  // "브론즈 승리 업적"의 ID (예시)
+            102   // "실버 문제 해결 업적"의 ID (예시)
+          ]
         }
         ```
 
@@ -208,6 +225,7 @@
 | `APPROVED_PROBLEM_COUNT`     | 유저가 등록한 문제가 관리자에 의해 승인된 횟수           | 목표 승인 횟수               |
 | `CONSECUTIVE_LOGIN`          | 연속 로그인 일수                                         | 목표 연속 로그인 일수        |
 | `LOGIN_ON_DAY_OF_WEEK`       | 특정 요일에 로그인                                       | 요일 (0=월요일, 6=일요일)    |
+| `TOTAL_REPORTS_MADE`         | 총 신고 횟수 (유저가 다른 유저를 신고한 횟수)            | 목표 신고 횟수               |
 
 ---
 

@@ -183,6 +183,7 @@ class CheatReport(Base):
     video_path = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reported_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)     # 신고 당한 사람 O, 신고를 한 사람 X
+    reporter_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)     # 신고를 한 사람 O
     is_approved = Column(Boolean, nullable=True)    # 관리자가 승인 O -> True, X -> False, 대기중 -> Null
 
 
@@ -234,6 +235,7 @@ class AchievementTriggerType(str, PyEnum):
     APPROVED_PROBLEM_COUNT = "approved_problem_count"
     CONSECUTIVE_LOGIN = "consecutive_login"
     LOGIN_ON_DAY_OF_WEEK = "login_on_day_of_week"
+    TOTAL_REPORTS_MADE = "total_reports_made"
 
 
 # ———————————————— 업적 카테고리 ————————————————
@@ -261,9 +263,7 @@ class Achievement(Base):
     achievement_category_id = Column(Integer, ForeignKey("achievement_category.achievement_category_id"), nullable=True)
     category = relationship("AchievementCategory", back_populates="achievements")
 
-    # — 누적형 업적 체인(자기 참조) —
-    next_achievement_id = Column(Integer, ForeignKey("achievement.achievement_id"), nullable=True)
-    next_achievement = relationship("Achievement", remote_side=[achievement_id], backref="previous_achievement")
+    
 
     # — 보상 정보 —
     reward_type = Column(Enum(RewardType), nullable=False, server_default=RewardType.BADGE.value)
@@ -285,3 +285,37 @@ class Achievement(Base):
 
     # 관계: 사용자별 업적
     user_achievements = relationship("UserAchievement", back_populates="achievement")
+
+    # 관계: 이 업적을 달성하기 위한 선행 업적들
+    prerequisites = relationship(
+        "AchievementPrerequisite",
+        foreign_keys="[AchievementPrerequisite.achievement_id]",
+        back_populates="achievement",
+        cascade="all, delete-orphan"
+    )
+    # 관계: 이 업적이 선행 업적으로 사용되는 다른 업적들
+    is_prerequisite_for = relationship(
+        "AchievementPrerequisite",
+        foreign_keys="[AchievementPrerequisite.prerequisite_achievement_id]",
+        back_populates="prerequisite_achievement",
+        cascade="all, delete-orphan"
+    )
+
+
+class AchievementPrerequisite(Base):
+    __tablename__ = "achievement_prerequisite"
+
+    achievement_id = Column(Integer, ForeignKey("achievement.achievement_id"), primary_key=True)
+    prerequisite_achievement_id = Column(Integer, ForeignKey("achievement.achievement_id"), primary_key=True)
+
+    # 관계
+    achievement = relationship(
+        "Achievement",
+        foreign_keys=[achievement_id],
+        back_populates="prerequisites"
+    )
+    prerequisite_achievement = relationship(
+        "Achievement",
+        foreign_keys=[prerequisite_achievement_id],
+        back_populates="is_prerequisite_for"
+    )
