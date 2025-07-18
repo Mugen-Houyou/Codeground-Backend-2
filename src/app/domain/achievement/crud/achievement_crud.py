@@ -9,7 +9,48 @@ from src.app.models.models import (
     UserAchievement,
     Problem,
     Match,
+    AchievementPrerequisite,
+    CheatReport,
 )
+from src.app.domain.achievement.schemas.achievement_schemas import AchievementCreate
+
+def get_total_reports_made(db: Session, user_id: int) -> int:
+    return (
+        db.query(func.count())
+        .select_from(CheatReport)
+        .filter(
+            CheatReport.reporter_user_id == user_id
+        )
+        .scalar()
+        or 0
+    )
+
+def create_achievement(db: Session, achievement_in: AchievementCreate) -> Achievement:
+    db_achievement = Achievement(
+        title=achievement_in.title,
+        description=achievement_in.description,
+        achievement_category_id=achievement_in.achievement_category_id,
+        trigger_type=achievement_in.trigger_type,
+        parameter=achievement_in.parameter,
+        reward_type=achievement_in.reward_type,
+        reward_amount=achievement_in.reward_amount,
+    )
+    db.add(db_achievement)
+    db.flush()  # Flush to get the achievement_id
+
+    if achievement_in.prerequisite_achievement_ids:
+        for prereq_id in achievement_in.prerequisite_achievement_ids:
+            db_prereq = AchievementPrerequisite(
+                achievement_id=db_achievement.achievement_id,
+                prerequisite_achievement_id=prereq_id,
+            )
+            db.add(db_prereq)
+
+    db.commit()
+    db.refresh(db_achievement)
+    return db_achievement
+
+
 
 
 def get_total_wins(db: Session, user_id: int) -> int:
@@ -171,3 +212,10 @@ def update_user_achievement_reward_status(
 
 def get_all_achievements(db: Session) -> list[Achievement]:
     return db.query(Achievement).all()
+
+def has_user_achieved(db: Session, user_id: int, achievement_id: int) -> bool:
+    return db.query(UserAchievement).filter(
+        UserAchievement.user_id == user_id,
+        UserAchievement.achievement_id == achievement_id,
+        UserAchievement.obtained_at.isnot(None) # 업적 달성 시각이 존재해야 함
+    ).first() is not None

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from src.app.models.models import AchievementTriggerType, RewardType
 
@@ -115,7 +115,7 @@ class AchievementCreate(AchievementBase):
 
 
 class AchievementUpdate(AchievementBase):
-    pass
+    prerequisite_achievement_ids: Optional[List[int]] = None
 
 
 class AchievementResponse(AchievementBase):

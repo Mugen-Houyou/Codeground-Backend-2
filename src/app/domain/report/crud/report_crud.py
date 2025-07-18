@@ -3,7 +3,7 @@ from src.app.models.models import CheatReport
 
 
 def create_report(
-    db: Session, game_id: int | None, reason: str, description: str, video_path: str, reported_user_id: int
+    db: Session, game_id: int | None, reason: str, description: str, video_path: str, reported_user_id: int, reporter_user_id: int
 ) -> CheatReport:
     report = CheatReport(
         game_id=game_id,
@@ -11,6 +11,7 @@ def create_report(
         description=description,
         video_path=video_path,
         reported_user_id=reported_user_id,
+        reporter_user_id=reporter_user_id,
     )
     db.add(report)
     db.commit()

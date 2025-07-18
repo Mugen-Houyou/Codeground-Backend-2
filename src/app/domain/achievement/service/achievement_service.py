@@ -16,6 +16,23 @@ async def check_and_unlock_achievements(
         trigger_type,
     )
     for ach in achievements:
+        # 이미 달성한 업적은 건너뛰기
+        if achievement_crud.get_user_achievement(db, user_id, ach.achievement_id):
+            continue
+
+        # 선행 업적 확인
+        # ach.prerequisites는 AchievementPrerequisite 객체들의 리스트
+        # 각 객체는 prerequisite_achievement_id를 가짐
+        all_prerequisites_met = True
+        if ach.prerequisites: # 선행 업적이 정의되어 있다면
+            for prereq_entry in ach.prerequisites:
+                if not achievement_crud.has_user_achieved(db, user_id, prereq_entry.prerequisite_achievement_id):
+                    all_prerequisites_met = False
+                    break
+        
+        if not all_prerequisites_met:
+            continue # 선행 업적이 충족되지 않았으면 다음 업적으로
+
         if ach.parameter is not None:
             # "적을수록 좋은" 업적 (예: N번 안에 풀기, 빨리 풀기, 오답 없이 승리)
             if trigger_type in [
@@ -33,19 +50,13 @@ async def check_and_unlock_achievements(
                 condition = current_value >= ach.parameter
 
             if condition:
-                existing = achievement_crud.get_user_achievement(
+                ua = achievement_crud.create_user_achievement(
                     db,
                     user_id,
                     ach.achievement_id,
                 )
-                if not existing:
-                    ua = achievement_crud.create_user_achievement(
-                        db,
-                        user_id,
-                        ach.achievement_id,
-                    )
-                    ua.current_value = current_value
-                    ua.obtained_at = datetime.now(timezone.utc)
+                ua.current_value = current_value
+                ua.obtained_at = datetime.now(timezone.utc)
     db.commit()
 
 
@@ -87,6 +98,8 @@ async def handle_achievement_event(
         current_value = kwargs.get("current_value", 0)
     elif trigger_type == AchievementTriggerType.LOGIN_ON_DAY_OF_WEEK:
         current_value = kwargs.get("current_value", 0)
+    elif trigger_type == AchievementTriggerType.TOTAL_REPORTS_MADE:
+        current_value = achievement_crud.get_total_reports_made(db, user_id)
 
     if current_value > 0 or trigger_type == AchievementTriggerType.LOGIN_ON_DAY_OF_WEEK:
         await check_and_unlock_achievements(

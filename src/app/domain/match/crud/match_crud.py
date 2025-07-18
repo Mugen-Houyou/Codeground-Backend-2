@@ -76,3 +76,14 @@ def get_body_key_from_problem_id(db: Session, problem_id: int) -> str:
     if problem is None:
         raise ValueError(f"No problem found with ID {problem_id}")
     return getattr(problem, "body_key")
+
+
+def get_match_opponent_id(db: Session, match_id: int, reporter_user_id: int) -> Optional[int]:
+    # 주어진 match_id에서 reporter_user_id의 상대방 ID를 찾습니다.
+    match_log = db.query(MatchLog).filter(
+        MatchLog.match_id == match_id,
+        MatchLog.user_id == reporter_user_id
+    ).first()
+    if match_log:
+        return match_log.opponent_id
+    return None

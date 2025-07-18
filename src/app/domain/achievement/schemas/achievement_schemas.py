@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List, Optional
 from src.app.models.models import AchievementTriggerType, RewardType
 
 
@@ -16,6 +17,17 @@ class AchievementBase(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AchievementCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    achievement_category_id: Optional[int] = None
+    trigger_type: AchievementTriggerType
+    parameter: Optional[int] = None
+    reward_type: RewardType
+    reward_amount: int
+    prerequisite_achievement_ids: Optional[List[int]] = None
 
 
 class UserAchievementResponse(BaseModel):

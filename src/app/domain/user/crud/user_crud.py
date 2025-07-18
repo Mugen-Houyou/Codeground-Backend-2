@@ -34,3 +34,11 @@ def delete_user(db: Session, user_id: int) -> bool:
 def get_user_mmr(db: Session, user_id: int) -> int:
     mmr_obj = db.query(UserMmr).filter(UserMmr.user_id == user_id).first()
     return mmr_obj.rating if mmr_obj else 1000
+
+def update_user_login_info(db: Session, user: User, last_login_at, consecutive_login_days):
+    user.last_login_at = last_login_at
+    user.consecutive_login_days = consecutive_login_days
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
