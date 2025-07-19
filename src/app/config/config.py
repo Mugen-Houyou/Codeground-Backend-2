@@ -72,11 +72,11 @@ class Settings(BaseSettings):
             return ["http://localhost:8080"]
         elif env in ["dev", "DEV"]:
             # 개발환경: 환경변수에서 반드시 허용할 도메인만 리스트로 반환
-            raw = os.environ.get("CORS_ALLOWED_ORIGINS", "https://code-ground.com")
+            raw = os.environ.get("CORS_ALLOWED_ORIGINS", "https://dev.code-ground.com")
             return [o.strip() for o in raw.split(",") if o.strip()]
         elif env in ["prod", "PROD"]:
             # 운영환경: 환경변수에서 반드시 허용할 도메인만 리스트로 반환
-            raw = os.environ.get("CORS_ALLOWED_ORIGINS", "https://dev.code-ground.com")
+            raw = os.environ.get("CORS_ALLOWED_ORIGINS", "https://code-ground.com")
             return [o.strip() for o in raw.split(",") if o.strip()]
 
 
